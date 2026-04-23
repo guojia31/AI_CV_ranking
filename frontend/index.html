@@ -9,11 +9,16 @@
 <div class="container">
   <h1>🤖 AI Resume Screening</h1>
 
+  <!-- JD -->
   <textarea id="jd" placeholder="Paste Job Description..."></textarea>
 
-  <input type="file" id="files" multiple accept=".pdf">
+  <!-- 上传 -->
+  <input type="file" id="fileInput" multiple accept=".pdf">
 
-  <button onclick="submitData()">Analyze</button>
+  <!-- 文件列表 -->
+  <div id="fileList"></div>
+
+  <button onclick="submitData()">🚀 Analyze</button>
 
   <div id="loading" class="hidden">Processing...</div>
 
