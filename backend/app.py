@@ -5,7 +5,7 @@ import pandas as pd
 import fitz
 import os
 
-from ranking_engine import rank_resumes
+from backend.ranking_engine import rank_resumes
 
 app = Flask(__name__)
 CORS(app)
