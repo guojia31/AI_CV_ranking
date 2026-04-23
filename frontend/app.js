@@ -1,57 +1,42 @@
-async function uploadAndRank() {
-  const jd = document.getElementById("jdInput").value;
-  const fileInput = document.getElementById("fileInput");
+async function submitData() {
+  const jd = document.getElementById("jd").value;
+  const files = document.getElementById("files").files;
   const loading = document.getElementById("loading");
   const resultsDiv = document.getElementById("results");
 
-  if (!jd) {
-    alert("Please input JD");
+  if (!jd || files.length === 0) {
+    alert("Please input JD and upload PDFs");
     return;
   }
-
-  if (!fileInput.files.length) {
-    alert("Please upload a CSV file");
-    return;
-  }
-
-  const file = fileInput.files[0];
 
   loading.classList.remove("hidden");
   resultsDiv.innerHTML = "";
 
   const formData = new FormData();
   formData.append("jd", jd);
-  formData.append("file", file);
 
-  try {
-    const response = await fetch("http://localhost:5000/rank", {
-      method: "POST",
-      body: formData
-    });
-
-    const data = await response.json();
-
-    loading.classList.add("hidden");
-
-    displayResults(data);
-
-  } catch (error) {
-    loading.classList.add("hidden");
-    alert("Error connecting to backend");
+  for (let i = 0; i < files.length; i++) {
+    formData.append("files", files[i]);
   }
-}
 
-function displayResults(data) {
-  const resultsDiv = document.getElementById("results");
+  const res = await fetch("http://localhost:5000/rank", {
+    method: "POST",
+    body: formData
+  });
 
-  data.forEach((item, index) => {
+  const data = await res.json();
+
+  loading.classList.add("hidden");
+
+  data.forEach((item, i) => {
     const div = document.createElement("div");
-    div.className = "result-item";
+    div.className = "card";
 
     div.innerHTML = `
-      <strong>#${index + 1}</strong><br>
-      Score: ${item.score}<br>
-      ${item.name ? "Name: " + item.name : ""}
+      <h3>#${i + 1} ${item.name}</h3>
+      <p>Score: ${item.score}</p>
+      <p>Similarity: ${item.similarity}</p>
+      <p>${item.reason}</p>
     `;
 
     resultsDiv.appendChild(div);
