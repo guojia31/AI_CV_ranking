@@ -3,7 +3,8 @@ from flask import Flask, request, jsonify
 import pandas as pd
 import fitz  # PyMuPDF
 from ranking_engine import rank_resumes
-
+from flask_cors import CORS
+CORS(app)
 app = Flask(__name__)
 
 # ========================
