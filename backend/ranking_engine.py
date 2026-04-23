@@ -10,7 +10,7 @@ MODEL_NAME = "doubao-lite-4k"
 
 
 # =========================
-# LLM 调用（稳定）
+# LLM调用（稳定）
 # =========================
 def call_llm(prompt, max_retries=3):
     headers = {
@@ -21,7 +21,7 @@ def call_llm(prompt, max_retries=3):
     data = {
         "model": MODEL_NAME,
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.2
+        "temperature": 0.1
     }
 
     for _ in range(max_retries):
@@ -33,8 +33,7 @@ def call_llm(prompt, max_retries=3):
                 time.sleep(1)
                 continue
 
-            content = res.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-            return content or ""
+            return res.json().get("choices", [{}])[0].get("message", {}).get("content", "")
 
         except Exception as e:
             print("LLM exception:", e)
@@ -44,7 +43,7 @@ def call_llm(prompt, max_retries=3):
 
 
 # =========================
-# JSON 安全解析
+# JSON解析（强增强版🔥）
 # =========================
 def safe_json_parse(text):
     if not text:
@@ -58,58 +57,66 @@ def safe_json_parse(text):
             end = text.rfind("}") + 1
             return json.loads(text[start:end])
         except:
+            print("⚠️ JSON parse failed, raw output:")
+            print(text)
             return {}
 
 
 # =========================
-# 文本清洗
-# =========================
-def clean_text(text):
-    if not text:
-        return ""
-    return text.replace("\x00", "").strip()
-
-
-# =========================
-# JD 解析（LLM一次）
+# JD解析（🔥强约束版本）
 # =========================
 def extract_jd(jd_text):
+
     prompt = f"""
-提取JD信息，返回JSON（严格JSON）：
+你是严格JSON生成器。
+
+⚠️ 你必须只输出JSON，不允许任何解释、文字、markdown。
+
+输出格式必须严格如下：
 
 {{
-  "must_have_skills": [],
-  "preferred_skills": [],
-  "min_years": 0,
-  "domain": ""
+  "must_have_skills": ["SQL", "Python"],
+  "preferred_skills": ["Teamwork"],
+  "min_years": 3,
+  "domain": "Data Science"
 }}
+
+规则：
+- 只能输出JSON
+- 不要解释
+- 不要多余文字
 
 JD:
 {jd_text[:1000]}
 """
 
     res = call_llm(prompt)
+    print("=== JD RAW OUTPUT ===")
+    print(res)
+
     data = safe_json_parse(res)
 
-    return data or {
-        "must_have_skills": [],
-        "preferred_skills": [],
-        "min_years": 0,
-        "domain": ""
+    # 🔥 强制 fallback（避免空系统）
+    return {
+        "must_have_skills": data.get("must_have_skills", []) or [],
+        "preferred_skills": data.get("preferred_skills", []) or [],
+        "min_years": data.get("min_years", 0) or 0,
+        "domain": data.get("domain", "") or ""
     }
 
 
 # =========================
-# Resume 解析（LLM轻任务）
+# Resume解析（稳定）
 # =========================
 def extract_resume(resume_text):
+
     prompt = f"""
-从简历提取信息，返回JSON：
+提取简历信息，只输出JSON：
 
 {{
-  "skills": [],
-  "years_experience": 0,
-  "domain": "",
+  "skills": ["Python"],
+  "years_experience": 3,
+  "domain": "Data Science",
   "keywords": []
 }}
 
@@ -120,16 +127,16 @@ def extract_resume(resume_text):
     res = call_llm(prompt)
     data = safe_json_parse(res)
 
-    return data or {
-        "skills": [],
-        "years_experience": 0,
-        "domain": "",
-        "keywords": []
+    return {
+        "skills": data.get("skills", []) or [],
+        "years_experience": data.get("years_experience", 0) or 0,
+        "domain": data.get("domain", "") or "",
+        "keywords": data.get("keywords", []) or []
     }
 
 
 # =========================
-# scoring（稳定核心）
+# scoring（稳定核心🔥）
 # =========================
 def compute_score(jd, resume):
 
@@ -152,23 +159,23 @@ def compute_score(jd, resume):
 
 
 # =========================
-# explanation（可选AI）
+# explanation（可选）
 # =========================
 def explain(jd, resume, score):
 
     prompt = f"""
-一句话解释为什么得分 {score}
+一句话解释为什么得分 {score}。
 
 JD: {jd}
 Resume: {resume}
 """
 
     res = call_llm(prompt)
-    return res.strip() if res else "Score based on skill matching"
+    return res.strip() if res else "Matched based on skills and experience"
 
 
 # =========================
-# 主函数（🔥最终版）
+# 主函数（🔥最终稳定版）
 # =========================
 def rank_resumes(df, jd_text, top_k=10):
 
@@ -178,9 +185,9 @@ def rank_resumes(df, jd_text, top_k=10):
 
     for _, row in df.iterrows():
 
-        resume_text = clean_text(row.get("内容", ""))
+        resume_text = row.get("内容", "")
 
-        if len(resume_text) < 20:
+        if not resume_text or len(resume_text) < 20:
             continue
 
         resume = extract_resume(resume_text)
@@ -192,14 +199,13 @@ def rank_resumes(df, jd_text, top_k=10):
         results.append({
             "name": row.get("姓名", ""),
             "score": score,
-            "similarity": 0,
             "reason": reason,
-            "resume_structured": resume   # ⭐ 可选：给前端调试用
+            "resume_structured": resume
         })
 
     results = sorted(results, key=lambda x: x["score"], reverse=True)
 
     return {
-        "jd": jd,              # ⭐ 前端展示用
+        "jd": jd,
         "results": results[:top_k]
     }
