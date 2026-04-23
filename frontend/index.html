@@ -34,7 +34,7 @@
     }
 
     .result {
-      border: 1px solid #ccc;
+      border: 1px solid #ddd;
       padding: 12px;
       margin-top: 10px;
       border-radius: 6px;
@@ -51,11 +51,11 @@
 
 <h2>🤖 AI Resume Screening System</h2>
 
-<!-- JD 输入 -->
+<!-- JD -->
 <textarea id="jd" placeholder="Paste Job Description here..."></textarea>
 
-<!-- 文件上传 -->
-<input type="file" id="fileInput" multiple accept=".pdf" />
+<!-- 文件上传（🔥 改成 docx） -->
+<input type="file" id="fileInput" multiple accept=".docx,.txt" />
 
 <div class="file-list" id="fileList"></div>
 
@@ -120,7 +120,7 @@ async function submitData() {
   }
 
   if (files.length === 0) {
-    alert("Please upload resumes");
+    alert("Please upload resumes (.docx recommended)");
     return;
   }
 
@@ -142,15 +142,17 @@ async function submitData() {
 
     const data = await res.json();
 
+    console.log("API RESPONSE:", data);
+
     if (!data || !data.jd || !data.results) {
       resultsDiv.innerHTML = "❌ Invalid response format";
       return;
     }
 
-    // ⭐ 先展示 JD
-    renderJD(data.jd);
+    // 清空旧结果（避免重复叠加）
+    resultsDiv.innerHTML = "";
 
-    // ⭐ 再展示结果
+    renderJD(data.jd);
     renderResults(data.results);
 
   } catch (err) {
@@ -161,11 +163,9 @@ async function submitData() {
 
 
 // =========================
-// JD 可视化
+// JD展示
 // =========================
 function renderJD(jd) {
-
-  const resultsDiv = document.getElementById("results");
 
   const box = document.createElement("div");
   box.className = "result";
@@ -173,9 +173,7 @@ function renderJD(jd) {
   box.innerHTML = `
     <h3>📌 AI Parsed Job Description</h3>
 
-    <p><strong>Experience:</strong>
-      ${jd.min_years || 0} years
-    </p>
+    <p><strong>Experience:</strong> ${jd.min_years || 0} years</p>
 
     <p><strong>Must-have Skills:</strong>
       ${(jd.must_have_skills || []).join(", ") || "None"}
@@ -185,12 +183,10 @@ function renderJD(jd) {
       ${(jd.preferred_skills || []).join(", ") || "None"}
     </p>
 
-    <p><strong>Domain:</strong>
-      ${jd.domain || "N/A"}
-    </p>
+    <p><strong>Domain:</strong> ${jd.domain || "N/A"}</p>
   `;
 
-  resultsDiv.appendChild(box);
+  document.getElementById("results").appendChild(box);
 }
 
 
