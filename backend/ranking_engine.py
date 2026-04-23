@@ -12,32 +12,36 @@ MODEL_NAME = "gemma4:latest"
 
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
-
 import requests
 import os
 
-OPENAI_API_KEY = os.getenv("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")
+DOUBAO_API_KEY = os.getenv("ark-10293dd2-2975-4230-9123-77c8d293bfd1-207e0")
+DOUBAO_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+MODEL_NAME = "doubao-lite-4k"  
 
 def call_llm(prompt):
-    url = "https://api.openai.com/v1/chat/completions"
-
     headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {DOUBAO_API_KEY}"
     }
 
     data = {
-        "model": "gpt-4o-mini",
+        "model": MODEL_NAME,
         "messages": [
             {"role": "user", "content": prompt}
         ],
         "temperature": 0.2
     }
 
-    response = requests.post(url, headers=headers, json=data)
-    return response.json()["choices"][0]["message"]["content"]
+    try:
+        response = requests.post(DOUBAO_URL, headers=headers, json=data, timeout=60)
+        result = response.json()
 
+        return result["choices"][0]["message"]["content"]
 
+    except Exception as e:
+        print("❌ Doubao API error:", e)
+        return ""
 # ========================
 # JD解析
 # ========================
