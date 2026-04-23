@@ -68,43 +68,52 @@ def safe_json_parse(text):
 def extract_jd(jd_text):
 
     prompt = f"""
-你是严格JSON生成器。
+你是信息抽取系统（非常重要）。
 
-⚠️ 你必须只输出JSON，不允许任何解释、文字、markdown。
+任务：从JD中提取结构化信息，只输出JSON。
 
-输出格式必须严格如下：
+⚠️ 绝对禁止输出任何解释、文字、markdown。
+
+---
+
+必须严格输出以下格式：
 
 {{
   "must_have_skills": ["SQL", "Python"],
-  "preferred_skills": ["Teamwork"],
+  "preferred_skills": ["Teamwork", "Communication"],
   "min_years": 3,
   "domain": "Data Science"
 }}
 
-规则：
-- 只能输出JSON
-- 不要解释
-- 不要多余文字
+---
 
-JD:
-{jd_text[:1000]}
+规则：
+1. skills必须从JD真实提取
+2. 如果没有明确写技能，可以合理推断（如 data/analysis → SQL, Python）
+3. years必须从描述中解析（如 3-5 years → 3）
+4. 必须返回JSON
+5. 不允许空字段（至少给合理默认）
+
+---
+
+JD内容：
+{jd_text}
 """
 
     res = call_llm(prompt)
-    print("=== JD RAW OUTPUT ===")
+
+    print("=== RAW JD OUTPUT ===")
     print(res)
 
     data = safe_json_parse(res)
 
-    # 🔥 强制 fallback（避免空系统）
+    # 🔥 强制兜底（防止空）
     return {
-        "must_have_skills": data.get("must_have_skills", []) or [],
-        "preferred_skills": data.get("preferred_skills", []) or [],
-        "min_years": data.get("min_years", 0) or 0,
-        "domain": data.get("domain", "") or ""
+        "must_have_skills": data.get("must_have_skills") or ["communication"],
+        "preferred_skills": data.get("preferred_skills") or [],
+        "min_years": data.get("min_years") or 1,
+        "domain": data.get("domain") or "general"
     }
-
-
 # =========================
 # Resume解析（稳定）
 # =========================
