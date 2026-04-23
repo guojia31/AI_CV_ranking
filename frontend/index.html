@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>AI Resume Screening</title>
+
   <style>
     body {
       font-family: Arial;
@@ -34,18 +35,26 @@
 
     .result {
       border: 1px solid #ccc;
-      padding: 10px;
+      padding: 12px;
       margin-top: 10px;
+      border-radius: 6px;
+      background: #fafafa;
+    }
+
+    h3 {
+      margin-bottom: 5px;
     }
   </style>
 </head>
 
 <body>
 
-<h2>🤖 AI Resume Screening</h2>
+<h2>🤖 AI Resume Screening System</h2>
 
+<!-- JD 输入 -->
 <textarea id="jd" placeholder="Paste Job Description here..."></textarea>
 
+<!-- 文件上传 -->
 <input type="file" id="fileInput" multiple accept=".pdf" />
 
 <div class="file-list" id="fileList"></div>
@@ -56,6 +65,7 @@
 <div id="results"></div>
 
 <script>
+
 let files = [];
 
 const fileInput = document.getElementById("fileInput");
@@ -63,7 +73,10 @@ const fileList = document.getElementById("fileList");
 
 const API_BASE = "https://independent-perception-production.up.railway.app";
 
-// 添加文件
+
+// =========================
+// 文件处理
+// =========================
 fileInput.addEventListener("change", (e) => {
   for (let f of e.target.files) {
     files.push(f);
@@ -71,7 +84,6 @@ fileInput.addEventListener("change", (e) => {
   renderFiles();
 });
 
-// 渲染文件列表
 function renderFiles() {
   fileList.innerHTML = "";
 
@@ -88,14 +100,17 @@ function renderFiles() {
   });
 }
 
-// 删除文件
 function removeFile(index) {
   files.splice(index, 1);
   renderFiles();
 }
 
+
+// =========================
 // 提交
+// =========================
 async function submitData() {
+
   const jd = document.getElementById("jd").value.trim();
   const resultsDiv = document.getElementById("results");
 
@@ -112,29 +127,31 @@ async function submitData() {
   const formData = new FormData();
   formData.append("jd", jd);
 
-  files.forEach((file) => {
+  files.forEach(file => {
     formData.append("files", file);
   });
 
   resultsDiv.innerHTML = "⏳ Processing...";
 
   try {
+
     const res = await fetch(`${API_BASE}/rank`, {
       method: "POST",
       body: formData
     });
 
-    if (!res.ok) {
-      throw new Error(`HTTP Error: ${res.status}`);
-    }
-
     const data = await res.json();
 
-    if (!Array.isArray(data)) {
-      throw new Error(JSON.stringify(data));
+    if (!data || !data.jd || !data.results) {
+      resultsDiv.innerHTML = "❌ Invalid response format";
+      return;
     }
 
-    renderResults(data);
+    // ⭐ 先展示 JD
+    renderJD(data.jd);
+
+    // ⭐ 再展示结果
+    renderResults(data.results);
 
   } catch (err) {
     console.error(err);
@@ -142,25 +159,65 @@ async function submitData() {
   }
 }
 
-// 渲染结果
-function renderResults(data) {
+
+// =========================
+// JD 可视化
+// =========================
+function renderJD(jd) {
+
   const resultsDiv = document.getElementById("results");
-  resultsDiv.innerHTML = "";
+
+  const box = document.createElement("div");
+  box.className = "result";
+
+  box.innerHTML = `
+    <h3>📌 AI Parsed Job Description</h3>
+
+    <p><strong>Experience:</strong>
+      ${jd.min_years || 0} years
+    </p>
+
+    <p><strong>Must-have Skills:</strong>
+      ${(jd.must_have_skills || []).join(", ") || "None"}
+    </p>
+
+    <p><strong>Preferred Skills:</strong>
+      ${(jd.preferred_skills || []).join(", ") || "None"}
+    </p>
+
+    <p><strong>Domain:</strong>
+      ${jd.domain || "N/A"}
+    </p>
+  `;
+
+  resultsDiv.appendChild(box);
+}
+
+
+// =========================
+// ranking结果
+// =========================
+function renderResults(data) {
+
+  const resultsDiv = document.getElementById("results");
 
   data.forEach((item, index) => {
+
     const div = document.createElement("div");
     div.className = "result";
 
     div.innerHTML = `
-      <strong>#${index + 1} ${item.name}</strong><br>
-      Score: ${item.score}<br>
-      Similarity: ${item.similarity}<br>
-      Reason: ${item.reason}
+      <h3>#${index + 1} ${item.name}</h3>
+
+      <p><strong>Score:</strong> ${item.score}</p>
+
+      <p><strong>Reason:</strong> ${item.reason}</p>
     `;
 
     resultsDiv.appendChild(div);
   });
 }
+
 </script>
 
 </body>
