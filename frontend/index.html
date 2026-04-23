@@ -1,34 +1,22 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>AI Resume Ranking System</title>
+  <title>AI Resume Screener</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <div class="container">
-  <h1>🤖 AI Resume Screening System</h1>
+  <h1>🤖 AI Resume Screening</h1>
 
-  <!-- JD 输入 -->
-  <div class="card">
-    <h2>📄 Job Description</h2>
-    <textarea id="jdInput" placeholder="Paste Job Description here..."></textarea>
-  </div>
+  <textarea id="jd" placeholder="Paste Job Description..."></textarea>
 
-  <!-- 上传简历 -->
-  <div class="card">
-    <h2>📂 Upload Resumes (CSV)</h2>
-    <input type="file" id="fileInput" accept=".csv">
-  </div>
+  <input type="file" id="files" multiple accept=".pdf">
 
-  <!-- 按钮 -->
-  <button onclick="uploadAndRank()">🚀 Analyze & Rank</button>
+  <button onclick="submitData()">Analyze</button>
 
-  <!-- 加载 -->
   <div id="loading" class="hidden">Processing...</div>
 
-  <!-- 结果 -->
   <div id="results"></div>
 </div>
 
