@@ -15,7 +15,7 @@ embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 import requests
 import os
 
-DOUBAO_API_KEY = os.getenv("ark-10293dd2-2975-4230-9123-77c8d293bfd1-207e0")
+DOUBAO_API_KEY = os.getenv("DOUBAO_API_KEY")
 DOUBAO_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
 MODEL_NAME = "doubao-lite-4k"  
 
