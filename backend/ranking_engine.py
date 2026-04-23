@@ -13,22 +13,29 @@ MODEL_NAME = "gemma4:latest"
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 
-# ========================
-# Ollama调用
-# ========================
-def call_ollama(prompt, temperature=0.2):
-    payload = {
-        "model": MODEL_NAME,
-        "prompt": prompt,
-        "temperature": temperature,
-        "stream": False
+import requests
+import os
+
+OPENAI_API_KEY = os.getenv("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")
+
+def call_llm(prompt):
+    url = "https://api.openai.com/v1/chat/completions"
+
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json"
     }
 
-    try:
-        response = requests.post(OLLAMA_URL, json=payload, timeout=120)
-        return response.json().get("response", "")
-    except:
-        return ""
+    data = {
+        "model": "gpt-4o-mini",
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.2
+    }
+
+    response = requests.post(url, headers=headers, json=data)
+    return response.json()["choices"][0]["message"]["content"]
 
 
 # ========================
@@ -46,7 +53,7 @@ JD:
 {jd_text}
 """
 
-    response = call_ollama(prompt)
+    response = call_llm(prompt)
 
     try:
         return json.loads(response)
@@ -101,7 +108,7 @@ def score_resume(resume_text, jd_structured):
 {{"score": 80, "reason": "说明"}}
 """
 
-    response = call_ollama(prompt)
+    response = call_llm(prompt)
 
     try:
         return json.loads(response)
