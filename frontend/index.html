@@ -39,134 +39,129 @@
     }
   </style>
 </head>
+
 <body>
 
-  <h2>🤖 AI Resume Screening</h2>
+<h2>🤖 AI Resume Screening</h2>
 
-  <!-- JD输入 -->
-  <textarea id="jd" placeholder="Paste Job Description here..."></textarea>
+<textarea id="jd" placeholder="Paste Job Description here..."></textarea>
 
-  <!-- 文件上传 -->
-  <input type="file" id="fileInput" multiple accept=".pdf" />
+<input type="file" id="fileInput" multiple accept=".pdf" />
 
-  <!-- 文件列表 -->
-  <div class="file-list" id="fileList"></div>
+<div class="file-list" id="fileList"></div>
 
-  <button onclick="submitData()">🚀 Analyze</button>
+<button onclick="submitData()">🚀 Analyze</button>
 
-  <h3>Results:</h3>
-  <div id="results"></div>
+<h3>Results:</h3>
+<div id="results"></div>
 
-  <script>
-    let files = [];
+<script>
+let files = [];
 
-    const fileInput = document.getElementById("fileInput");
-    const fileList = document.getElementById("fileList");
+const fileInput = document.getElementById("fileInput");
+const fileList = document.getElementById("fileList");
 
-    // 🚀 自动切换环境（关键）
-    const API_BASE = "https://independent-perception-production.up.railway.app";
+const API_BASE = "https://independent-perception-production.up.railway.app";
 
-    fetch(`${API_BASE}/rank`, {
+// 添加文件
+fileInput.addEventListener("change", (e) => {
+  for (let f of e.target.files) {
+    files.push(f);
+  }
+  renderFiles();
+});
+
+// 渲染文件列表
+function renderFiles() {
+  fileList.innerHTML = "";
+
+  files.forEach((file, index) => {
+    const div = document.createElement("div");
+    div.className = "file-item";
+
+    div.innerHTML = `
+      <span>${file.name}</span>
+      <button onclick="removeFile(${index})">❌</button>
+    `;
+
+    fileList.appendChild(div);
+  });
+}
+
+// 删除文件
+function removeFile(index) {
+  files.splice(index, 1);
+  renderFiles();
+}
+
+// 提交
+async function submitData() {
+  const jd = document.getElementById("jd").value.trim();
+  const resultsDiv = document.getElementById("results");
+
+  if (!jd) {
+    alert("Please enter JD");
+    return;
+  }
+
+  if (files.length === 0) {
+    alert("Please upload resumes");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("jd", jd);
+
+  files.forEach((file) => {
+    formData.append("files", file);
+  });
+
+  resultsDiv.innerHTML = "⏳ Processing...";
+
+  try {
+    const res = await fetch(`${API_BASE}/rank`, {
       method: "POST",
       body: formData
     });
-  
-    // 添加文件
-    fileInput.addEventListener("change", (e) => {
-      for (let f of e.target.files) {
-        files.push(f);
-      }
-      renderFiles();
-    });
 
-    // 渲染文件列表
-    function renderFiles() {
-      fileList.innerHTML = "";
-
-      files.forEach((file, index) => {
-        const div = document.createElement("div");
-        div.className = "file-item";
-
-        div.innerHTML = `
-          <span>${file.name}</span>
-          <button onclick="removeFile(${index})">❌</button>
-        `;
-
-        fileList.appendChild(div);
-      });
+    if (!res.ok) {
+      throw new Error(`HTTP Error: ${res.status}`);
     }
 
-    // 删除文件
-    function removeFile(index) {
-      files.splice(index, 1);
-      renderFiles();
+    const data = await res.json();
+
+    if (!Array.isArray(data)) {
+      throw new Error(JSON.stringify(data));
     }
 
-    // 提交
-    async function submitData() {
-      const jd = document.getElementById("jd").value;
+    renderResults(data);
 
-      if (!jd) {
-        alert("Please enter JD");
-        return;
-      }
+  } catch (err) {
+    console.error(err);
+    resultsDiv.innerHTML = "❌ Error: " + err.message;
+  }
+}
 
-      if (files.length === 0) {
-        alert("Please upload resumes");
-        return;
-      }
+// 渲染结果
+function renderResults(data) {
+  const resultsDiv = document.getElementById("results");
+  resultsDiv.innerHTML = "";
 
-      const formData = new FormData();
-      formData.append("jd", jd);
+  data.forEach((item, index) => {
+    const div = document.createElement("div");
+    div.className = "result";
 
-      files.forEach((file) => {
-        formData.append("files", file); // ⚠️ 必须是 files
-      });
+    div.innerHTML = `
+      <strong>#${index + 1} ${item.name}</strong><br>
+      Score: ${item.score}<br>
+      Similarity: ${item.similarity}<br>
+      Reason: ${item.reason}
+    `;
 
-      const resultsDiv = document.getElementById("results");
-      resultsDiv.innerHTML = "⏳ Processing...";
-
-      try {
-        const res = await fetch(`${API_BASE}/rank`, {
-          method: "POST",
-          body: formData,
-        });
-
-        const data = await res.json();
-
-        if (!Array.isArray(data)) {
-          resultsDiv.innerHTML = "❌ Error: " + JSON.stringify(data);
-          return;
-        }
-
-        renderResults(data);
-
-      } catch (err) {
-        console.error(err);
-        resultsDiv.innerHTML = "❌ Error: " + err.message;
-      }
-    }
-
-    // 渲染结果
-    function renderResults(data) {
-      const resultsDiv = document.getElementById("results");
-      resultsDiv.innerHTML = "";
-
-      data.forEach((item, index) => {
-        const div = document.createElement("div");
-        div.className = "result";
-
-        div.innerHTML = `
-          <strong>#${index + 1} ${item.name}</strong><br>
-          Score: ${item.score}<br>
-          Similarity: ${item.similarity}<br>
-          Reason: ${item.reason}
-        `;
-
-        resultsDiv.appendChild(div);
-      });
-    }
-  </script>
+    resultsDiv.appendChild(div);
+  });
+}
+</script>
 
 </body>
 </html>
