@@ -9,18 +9,9 @@ DOUBAO_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
 MODEL_NAME = "doubao-lite-4k"
 
 
-# ========================
-# 工具函数（新增）
-# ========================
-def clean_text(text):
-    if not text:
-        return ""
-    return text.replace("\x00", "").strip()
-
-
-# ========================
-# LLM调用（稳定版）
-# ========================
+# =========================
+# LLM 调用（稳定）
+# =========================
 def call_llm(prompt, max_retries=3):
     headers = {
         "Content-Type": "application/json",
@@ -33,37 +24,28 @@ def call_llm(prompt, max_retries=3):
         "temperature": 0.2
     }
 
-    for i in range(max_retries):
+    for _ in range(max_retries):
         try:
-            response = requests.post(
-                DOUBAO_URL,
-                headers=headers,
-                json=data,
-                timeout=30
-            )
+            res = requests.post(DOUBAO_URL, headers=headers, json=data, timeout=30)
 
-            if response.status_code != 200:
-                print("❌ API错误:", response.text)
-                time.sleep(2)
+            if res.status_code != 200:
+                print("LLM error:", res.text)
+                time.sleep(1)
                 continue
 
-            result = response.json()
-            content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
-
-            if content:
-                return content
+            content = res.json().get("choices", [{}])[0].get("message", {}).get("content", "")
+            return content or ""
 
         except Exception as e:
-            print("❌ LLM异常:", e)
-
-        time.sleep(2)
+            print("LLM exception:", e)
+            time.sleep(1)
 
     return ""
 
 
-# ========================
-# JSON解析（增强版）
-# ========================
+# =========================
+# JSON 安全解析
+# =========================
 def safe_json_parse(text):
     if not text:
         return {}
@@ -79,118 +61,144 @@ def safe_json_parse(text):
             return {}
 
 
-# ========================
-# JD解析
-# ========================
-def parse_jd(jd_text):
+# =========================
+# 文本清洗
+# =========================
+def clean_text(text):
+    if not text:
+        return ""
+    return text.replace("\x00", "").strip()
+
+
+# =========================
+# JD 结构化（LLM只做一次）
+# =========================
+def extract_jd(jd_text):
     prompt = f"""
-提取JD关键信息，返回JSON：
-- must_have_skills
-- preferred_skills
-- experience_years
-- education
+提取JD信息，返回JSON（不要解释）：
+
+{{
+  "must_have_skills": [],
+  "preferred_skills": [],
+  "min_years": 0,
+  "domain": ""
+}}
 
 JD:
 {jd_text[:1000]}
 """
 
-    response = call_llm(prompt)
-    data = safe_json_parse(response)
+    res = call_llm(prompt)
+    data = safe_json_parse(res)
 
-    if not data:
-        return {
-            "must_have_skills": [],
-            "preferred_skills": [],
-            "experience_years": "",
-            "education": ""
-        }
-
-    return data
+    return data or {
+        "must_have_skills": [],
+        "preferred_skills": [],
+        "min_years": 0,
+        "domain": ""
+    }
 
 
-# ========================
-# 简历评分（强化版🔥）
-# ========================
-def score_resume(resume_text, jd_structured):
-
-    resume_text = clean_text(resume_text)
-
-    # 🚨 核心防护：空简历直接跳过
-    if len(resume_text) < 20:
-        return {
-            "score": 0,
-            "reason": "Empty or invalid resume text"
-        }
-
+# =========================
+# Resume 结构化（LLM轻任务）
+# =========================
+def extract_resume(resume_text):
     prompt = f"""
-岗位需求：
-{json.dumps(jd_structured, ensure_ascii=False)}
+从简历中提取信息，返回JSON：
+
+{{
+  "skills": [],
+  "years_experience": 0,
+  "domain": "",
+  "keywords": []
+}}
 
 简历：
 {resume_text[:1200]}
-
-请严格返回JSON：
-{{"score": 0-100整数, "reason": "简要分析"}}
 """
 
-    response = call_llm(prompt)
+    res = call_llm(prompt)
+    data = safe_json_parse(res)
 
-    data = safe_json_parse(response)
-
-    # 🚨 fallback强化
-    if not data:
-        return {
-            "score": 0,
-            "reason": "LLM解析失败"
-        }
-
-    if "score" not in data:
-        return {
-            "score": 0,
-            "reason": "Missing score field"
-        }
-
-    # 防止奇怪类型
-    try:
-        data["score"] = int(data["score"])
-    except:
-        data["score"] = 0
-
-    return data
+    return data or {
+        "skills": [],
+        "years_experience": 0,
+        "domain": "",
+        "keywords": []
+    }
 
 
-# ========================
-# 主流程（稳定版🔥）
-# ========================
+# =========================
+# 评分（完全不用LLM，稳定核心🔥）
+# =========================
+def compute_score(jd, resume):
+
+    score = 0
+
+    must = set(jd.get("must_have_skills", []))
+    pref = set(jd.get("preferred_skills", []))
+    skills = set(resume.get("skills", []))
+
+    # skill match
+    score += len(must & skills) * 25
+    score += len(pref & skills) * 10
+
+    # experience
+    if resume.get("years_experience", 0) >= jd.get("min_years", 0):
+        score += 20
+
+    # domain match
+    if jd.get("domain") and jd.get("domain") == resume.get("domain"):
+        score += 10
+
+    return min(score, 100)
+
+
+# =========================
+# reason（LLM optional）
+# =========================
+def explain(jd, resume, score):
+
+    prompt = f"""
+解释这个评分为什么是 {score}。
+
+JD: {jd}
+Resume: {resume}
+
+一句话说明原因即可。
+"""
+
+    res = call_llm(prompt)
+    return res.strip() if res else "Score computed based on skill matching"
+
+
+# =========================
+# 主函数（稳定版🔥）
+# =========================
 def rank_resumes(df, jd_text, top_k=10):
-    try:
-        jd_structured = parse_jd(jd_text)
 
-        results = []
+    jd = extract_jd(jd_text)
 
-        for _, row in df.iterrows():
+    results = []
 
-            resume_text = clean_text(row.get("内容", ""))
+    for _, row in df.iterrows():
 
-            print("🔍 resume preview:", resume_text[:50])  # debug关键
+        resume_text = clean_text(row.get("内容", ""))
 
-            if len(resume_text) < 20:
-                print("⚠️ skip empty resume")
-                continue
+        if len(resume_text) < 20:
+            continue
 
-            res = score_resume(resume_text, jd_structured)
+        resume = extract_resume(resume_text)
 
-            results.append({
-                "name": row.get("姓名", ""),
-                "score": res.get("score", 0),
-                "similarity": 0,
-                "reason": res.get("reason", "")
-            })
+        score = compute_score(jd, resume)
 
-        results = sorted(results, key=lambda x: x["score"], reverse=True)
+        reason = explain(jd, resume, score)
 
-        return results[:top_k]
+        results.append({
+            "name": row.get("姓名", ""),
+            "score": score,
+            "similarity": 0,
+            "reason": reason
+        })
 
-    except Exception as e:
-        print("❌ rank_resumes error:", e)
-        return []
+    return sorted(results, key=lambda x: x["score"], reverse=True)[:top_k]
