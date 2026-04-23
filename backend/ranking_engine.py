@@ -1,22 +1,19 @@
 # -*- coding: utf-8 -*-
 import json
 import requests
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
-
-# ========================
-# 配置
-# ========================
-
-embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-
-import requests
 import os
 
+# ========================
+# Doubao API 配置
+# ========================
 DOUBAO_API_KEY = os.getenv("DOUBAO_API_KEY")
 DOUBAO_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
-MODEL_NAME = "doubao-lite-4k"  
+MODEL_NAME = "doubao-lite-4k"
 
+
+# ========================
+# LLM调用
+# ========================
 def call_llm(prompt):
     headers = {
         "Content-Type": "application/json",
@@ -32,10 +29,31 @@ def call_llm(prompt):
     }
 
     try:
-        return result["choices"][0]["message"]["content"]
+        response = requests.post(DOUBAO_URL, headers=headers, json=data, timeout=60)
+        result = response.json()
+
+        return result.get("choices", [{}])[0].get("message", {}).get("content", "")
+
     except Exception as e:
-        print("❌ Doubao返回异常:", result)
+        print("❌ Doubao API error:", e)
         return ""
+
+
+# ========================
+# JSON安全解析
+# ========================
+def safe_json_parse(text):
+    try:
+        return json.loads(text)
+    except:
+        try:
+            start = text.find("{")
+            end = text.rfind("}") + 1
+            return json.loads(text[start:end])
+        except:
+            return {}
+
+
 # ========================
 # JD解析
 # ========================
@@ -52,47 +70,11 @@ JD:
 """
 
     response = call_llm(prompt)
-
-    try:
-        return json.loads(response)
-    except:
-        return {}
+    return safe_json_parse(response)
 
 
 # ========================
-# 文本构建（支持PDF）
-# ========================
-def build_resume_text(row):
-    if "内容" in row:
-        return row["内容"]
-    return ""
-
-
-# ========================
-# Embedding
-# ========================
-def get_embedding(text):
-    return embedding_model.encode(text)
-
-
-# ========================
-# Top-K召回
-# ========================
-def retrieve_top_k(df, jd_text, k=10):
-    jd_emb = get_embedding(jd_text)
-
-    resume_texts = [build_resume_text(row) for _, row in df.iterrows()]
-    resume_embs = embedding_model.encode(resume_texts)
-
-    sims = cosine_similarity([jd_emb], resume_embs)[0]
-
-    top_k_idx = sims.argsort()[-k:][::-1]
-
-    return top_k_idx, sims
-
-
-# ========================
-# LLM评分
+# 简历评分
 # ========================
 def score_resume(resume_text, jd_structured):
     prompt = f"""
@@ -100,49 +82,41 @@ def score_resume(resume_text, jd_structured):
 {json.dumps(jd_structured, ensure_ascii=False)}
 
 简历：
-{resume_text}
+{resume_text[:3000]}
 
-评分0-100，返回JSON：
+请评分0-100，并返回JSON：
 {{"score": 80, "reason": "说明"}}
 """
 
     response = call_llm(prompt)
-
-    try:
-        return json.loads(response)
-    except:
-        return {"score": 0, "reason": "parse_error"}
+    return safe_json_parse(response)
 
 
 # ========================
-# 主流程
+# 主排序逻辑（无embedding）
 # ========================
 def rank_resumes(df, jd_text, top_k=10):
     jd_structured = parse_jd(jd_text)
 
-    top_k_idx, sims = retrieve_top_k(df, jd_text, top_k)
-
     results = []
 
-    for idx in top_k_idx:
-        row = df.iloc[idx]
+    for _, row in df.iterrows():
+        resume_text = row.get("内容", "")
 
-        resume_text = build_resume_text(row)
+        if not resume_text.strip():
+            continue
 
         res = score_resume(resume_text, jd_structured)
 
-        llm_score = res.get("score", 0)
-        sim_score = sims[idx] * 100
-
-        final_score = 0.7 * llm_score + 0.3 * sim_score
+        score = res.get("score", 0)
 
         results.append({
             "name": row.get("姓名", ""),
-            "score": round(final_score, 2),
-            "similarity": round(sim_score, 2),
+            "score": score,
+            "similarity": 0,
             "reason": res.get("reason", "")
         })
 
     results = sorted(results, key=lambda x: x["score"], reverse=True)
 
-    return results
+    return results[:top_k]
