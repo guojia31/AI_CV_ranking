@@ -2,9 +2,10 @@
 import json
 import requests
 import os
+import time
 
 # ========================
-# Doubao API 配置
+# 配置
 # ========================
 DOUBAO_API_KEY = os.getenv("DOUBAO_API_KEY")
 DOUBAO_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
@@ -12,9 +13,9 @@ MODEL_NAME = "doubao-lite-4k"
 
 
 # ========================
-# LLM调用
+# ✅ 稳定 LLM 调用（带重试）
 # ========================
-def call_llm(prompt):
+def call_llm(prompt, max_retries=3):
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {DOUBAO_API_KEY}"
@@ -22,27 +23,45 @@ def call_llm(prompt):
 
     data = {
         "model": MODEL_NAME,
-        "messages": [
-            {"role": "user", "content": prompt}
-        ],
+        "messages": [{"role": "user", "content": prompt}],
         "temperature": 0.2
     }
 
-    try:
-        response = requests.post(DOUBAO_URL, headers=headers, json=data, timeout=60)
-        result = response.json()
+    for i in range(max_retries):
+        try:
+            response = requests.post(
+                DOUBAO_URL,
+                headers=headers,
+                json=data,
+                timeout=30
+            )
 
-        return result.get("choices", [{}])[0].get("message", {}).get("content", "")
+            if response.status_code != 200:
+                print("❌ API状态异常:", response.text)
+                time.sleep(2)
+                continue
 
-    except Exception as e:
-        print("❌ Doubao API error:", e)
-        return ""
+            result = response.json()
+            content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+
+            if content:
+                return content
+
+        except Exception as e:
+            print("❌ LLM调用失败:", e)
+
+        time.sleep(2)
+
+    return ""  # 最终失败
 
 
 # ========================
-# JSON安全解析
+# ✅ JSON安全解析（超稳）
 # ========================
 def safe_json_parse(text):
+    if not text:
+        return {}
+
     try:
         return json.loads(text)
     except:
@@ -55,26 +74,38 @@ def safe_json_parse(text):
 
 
 # ========================
-# JD解析
+# JD解析（带fallback）
 # ========================
 def parse_jd(jd_text):
     prompt = f"""
-提取JD信息，返回JSON：
+提取JD关键信息，返回JSON：
 - must_have_skills
 - preferred_skills
 - experience_years
 - education
 
 JD:
-{jd_text}
+{jd_text[:1000]}
 """
 
     response = call_llm(prompt)
-    return safe_json_parse(response)
+
+    data = safe_json_parse(response)
+
+    # fallback（避免空）
+    if not data:
+        return {
+            "must_have_skills": [],
+            "preferred_skills": [],
+            "experience_years": "",
+            "education": ""
+        }
+
+    return data
 
 
 # ========================
-# 简历评分
+# 简历评分（稳定版）
 # ========================
 def score_resume(resume_text, jd_structured):
     prompt = f"""
@@ -82,41 +113,56 @@ def score_resume(resume_text, jd_structured):
 {json.dumps(jd_structured, ensure_ascii=False)}
 
 简历：
-{resume_text[:3000]}
+{resume_text[:1200]}
 
 请评分0-100，并返回JSON：
-{{"score": 80, "reason": "说明"}}
+{{"score": 80, "reason": "简要说明"}}
 """
 
     response = call_llm(prompt)
-    return safe_json_parse(response)
+
+    data = safe_json_parse(response)
+
+    # fallback（关键！）
+    if not data or "score" not in data:
+        return {
+            "score": 0,
+            "reason": "LLM解析失败"
+        }
+
+    return data
 
 
 # ========================
-# 主排序逻辑（无embedding）
+# 主流程（带全局保护）
 # ========================
 def rank_resumes(df, jd_text, top_k=10):
-    jd_structured = parse_jd(jd_text)
+    try:
+        jd_structured = parse_jd(jd_text)
 
-    results = []
+        results = []
 
-    for _, row in df.iterrows():
-        resume_text = row.get("内容", "")
+        for _, row in df.iterrows():
+            resume_text = row.get("内容", "")
 
-        if not resume_text.strip():
-            continue
+            if not resume_text.strip():
+                continue
 
-        res = score_resume(resume_text, jd_structured)
+            res = score_resume(resume_text, jd_structured)
 
-        score = res.get("score", 0)
+            score = res.get("score", 0)
 
-        results.append({
-            "name": row.get("姓名", ""),
-            "score": score,
-            "similarity": 0,
-            "reason": res.get("reason", "")
-        })
+            results.append({
+                "name": row.get("姓名", ""),
+                "score": score,
+                "similarity": 0,
+                "reason": res.get("reason", "")
+            })
 
-    results = sorted(results, key=lambda x: x["score"], reverse=True)
+        results = sorted(results, key=lambda x: x["score"], reverse=True)
 
-    return results[:top_k]
+        return results[:top_k]
+
+    except Exception as e:
+        print("❌ rank_resumes错误:", e)
+        return []
