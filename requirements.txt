@@ -2,8 +2,6 @@ flask
 flask-cors
 pandas
 requests
-sentence-transformers
 scikit-learn
 pymupdf
 gunicorn
-torch
