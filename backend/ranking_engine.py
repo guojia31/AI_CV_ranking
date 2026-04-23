@@ -7,8 +7,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 # ========================
 # 配置
 # ========================
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL_NAME = "gemma4:latest"
 
 embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
 
@@ -34,13 +32,9 @@ def call_llm(prompt):
     }
 
     try:
-        response = requests.post(DOUBAO_URL, headers=headers, json=data, timeout=60)
-        result = response.json()
-
         return result["choices"][0]["message"]["content"]
-
     except Exception as e:
-        print("❌ Doubao API error:", e)
+        print("❌ Doubao返回异常:", result)
         return ""
 # ========================
 # JD解析
