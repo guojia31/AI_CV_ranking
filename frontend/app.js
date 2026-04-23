@@ -1,10 +1,48 @@
+// 全局存储文件
+let selectedFiles = [];
+
+// 监听文件上传
+document.getElementById("fileInput").addEventListener("change", function (e) {
+  const files = Array.from(e.target.files);
+
+  files.forEach(file => {
+    selectedFiles.push(file);
+  });
+
+  renderFileList();
+});
+
+// 渲染文件列表
+function renderFileList() {
+  const fileList = document.getElementById("fileList");
+  fileList.innerHTML = "";
+
+  selectedFiles.forEach((file, index) => {
+    const div = document.createElement("div");
+    div.className = "file-item";
+
+    div.innerHTML = `
+      <span>${file.name}</span>
+      <button onclick="removeFile(${index})">❌</button>
+    `;
+
+    fileList.appendChild(div);
+  });
+}
+
+// 删除文件
+function removeFile(index) {
+  selectedFiles.splice(index, 1);
+  renderFileList();
+}
+
+// 提交
 async function submitData() {
   const jd = document.getElementById("jd").value;
-  const files = document.getElementById("files").files;
   const loading = document.getElementById("loading");
   const resultsDiv = document.getElementById("results");
 
-  if (!jd || files.length === 0) {
+  if (!jd || selectedFiles.length === 0) {
     alert("Please input JD and upload PDFs");
     return;
   }
@@ -15,18 +53,31 @@ async function submitData() {
   const formData = new FormData();
   formData.append("jd", jd);
 
-  for (let i = 0; i < files.length; i++) {
-    formData.append("files", files[i]);
-  }
-
-  const res = await fetch("http://localhost:5000/rank", {
-    method: "POST",
-    body: formData
+  selectedFiles.forEach(file => {
+    formData.append("files", file);
   });
 
-  const data = await res.json();
+  try {
+    const res = await fetch("http://localhost:5000/rank", {
+      method: "POST",
+      body: formData
+    });
 
-  loading.classList.add("hidden");
+    const data = await res.json();
+
+    loading.classList.add("hidden");
+
+    displayResults(data);
+
+  } catch (err) {
+    loading.classList.add("hidden");
+    alert("Error connecting to backend");
+  }
+}
+
+// 显示结果
+function displayResults(data) {
+  const resultsDiv = document.getElementById("results");
 
   data.forEach((item, i) => {
     const div = document.createElement("div");
