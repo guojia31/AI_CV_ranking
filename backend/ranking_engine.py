@@ -71,11 +71,11 @@ def clean_text(text):
 
 
 # =========================
-# JD 结构化（LLM只做一次）
+# JD 解析（LLM一次）
 # =========================
 def extract_jd(jd_text):
     prompt = f"""
-提取JD信息，返回JSON（不要解释）：
+提取JD信息，返回JSON（严格JSON）：
 
 {{
   "must_have_skills": [],
@@ -100,11 +100,11 @@ JD:
 
 
 # =========================
-# Resume 结构化（LLM轻任务）
+# Resume 解析（LLM轻任务）
 # =========================
 def extract_resume(resume_text):
     prompt = f"""
-从简历中提取信息，返回JSON：
+从简历提取信息，返回JSON：
 
 {{
   "skills": [],
@@ -129,7 +129,7 @@ def extract_resume(resume_text):
 
 
 # =========================
-# 评分（完全不用LLM，稳定核心🔥）
+# scoring（稳定核心）
 # =========================
 def compute_score(jd, resume):
 
@@ -139,15 +139,12 @@ def compute_score(jd, resume):
     pref = set(jd.get("preferred_skills", []))
     skills = set(resume.get("skills", []))
 
-    # skill match
     score += len(must & skills) * 25
     score += len(pref & skills) * 10
 
-    # experience
     if resume.get("years_experience", 0) >= jd.get("min_years", 0):
         score += 20
 
-    # domain match
     if jd.get("domain") and jd.get("domain") == resume.get("domain"):
         score += 10
 
@@ -155,25 +152,23 @@ def compute_score(jd, resume):
 
 
 # =========================
-# reason（LLM optional）
+# explanation（可选AI）
 # =========================
 def explain(jd, resume, score):
 
     prompt = f"""
-解释这个评分为什么是 {score}。
+一句话解释为什么得分 {score}
 
 JD: {jd}
 Resume: {resume}
-
-一句话说明原因即可。
 """
 
     res = call_llm(prompt)
-    return res.strip() if res else "Score computed based on skill matching"
+    return res.strip() if res else "Score based on skill matching"
 
 
 # =========================
-# 主函数（稳定版🔥）
+# 主函数（🔥最终版）
 # =========================
 def rank_resumes(df, jd_text, top_k=10):
 
@@ -198,7 +193,13 @@ def rank_resumes(df, jd_text, top_k=10):
             "name": row.get("姓名", ""),
             "score": score,
             "similarity": 0,
-            "reason": reason
+            "reason": reason,
+            "resume_structured": resume   # ⭐ 可选：给前端调试用
         })
 
-    return sorted(results, key=lambda x: x["score"], reverse=True)[:top_k]
+    results = sorted(results, key=lambda x: x["score"], reverse=True)
+
+    return {
+        "jd": jd,              # ⭐ 前端展示用
+        "results": results[:top_k]
+    }
