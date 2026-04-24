@@ -1,10 +1,6 @@
-import os
 import requests
 import json
-
-DOUBAO_API_KEY = os.getenv("DOUBAO_API_KEY")
-DOUBAO_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
-MODEL_NAME = "doubao-lite-4k"
+from config import DOUBAO_API_KEY, DOUBAO_URL, MODEL_NAME
 
 
 def call_llm(prompt):
@@ -22,12 +18,17 @@ def call_llm(prompt):
 
     try:
         res = requests.post(DOUBAO_URL, headers=headers, json=data, timeout=30)
+        res.raise_for_status()
+
         return res.json()["choices"][0]["message"]["content"]
-    except:
+
+    except Exception as e:
+        print("LLM error:", e)
         return ""
 
 
 def safe_json(text):
+
     try:
         return json.loads(text)
     except:
