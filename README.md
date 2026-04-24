@@ -1,25 +1,36 @@
 # 🤖 AI Resume Screening System
 
-An AI-powered resume screening system using LLM + Embedding + Semantic Search.
+## Overview
 
-## 🚀 Features
-- Job Description parsing
-- Resume ranking (0–100 score)
-- Semantic search (embedding)
-- Top-K candidate selection
-- Web interface
+An AI-powered system that ranks candidates based on a job description using:
 
-## 🧠 Architecture
-JD → Embedding → Top-K Retrieval → LLM Rerank → Ranking
+* LLM-based information extraction
+* Rule-based scoring engine
+* Multi-format resume support (PDF / DOCX / CSV / TXT)
 
-## 🛠 Tech Stack
-- Python (Flask)
-- Ollama (LLM)
-- Sentence Transformers
-- HTML / JS Frontend
+---
 
-## ▶️ How to Run
+## Features
 
-### 1. Install dependencies
-```bash
-pip install -r requirements.txt
+* 📄 Upload resumes (PDF / DOCX / CSV / TXT)
+* 🧠 AI extracts skills, experience, domain
+* ⚖️ Deterministic ranking (stable, no LLM scoring)
+* 📊 Explainable results with scores
+
+---
+
+## Architecture
+
+Frontend → Flask API → Parser → LLM Extractor → Ranking Engine → Results
+
+---
+
+## Tech Stack
+
+* Flask + Gunicorn
+* Python
+* Doubao LLM API
+* PyPDF2 / python-docx / pandas
+* Vanilla JS frontend
+
+
