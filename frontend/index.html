@@ -1,220 +1,26 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>AI Resume Screening</title>
-
-  <style>
-    body {
-      font-family: Arial;
-      max-width: 800px;
-      margin: 40px auto;
-    }
-
-    textarea {
-      width: 100%;
-      height: 120px;
-      margin-bottom: 10px;
-    }
-
-    .file-list {
-      margin: 10px 0;
-    }
-
-    .file-item {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 5px;
-    }
-
-    button {
-      padding: 8px 12px;
-      margin-top: 10px;
-      cursor: pointer;
-    }
-
-    .result {
-      border: 1px solid #ddd;
-      padding: 12px;
-      margin-top: 10px;
-      border-radius: 6px;
-      background: #fafafa;
-    }
-
-    h3 {
-      margin-bottom: 5px;
-    }
-  </style>
+  <meta charset="UTF-8">
+  <title>AI Resume System</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-<h2>🤖 AI Resume Screening System</h2>
+<h2>AI Resume Screening</h2>
 
-<!-- JD -->
-<textarea id="jd" placeholder="Paste Job Description here..."></textarea>
+<textarea id="jd" placeholder="Paste JD here"></textarea>
 
-<!-- 文件上传（🔥 改成 docx） -->
-<input type="file" id="fileInput" multiple accept=".docx,.txt" />
+<input type="file" id="fileInput" multiple accept=".pdf,.docx,.csv,.txt">
 
-<div class="file-list" id="fileList"></div>
+<div id="fileList"></div>
 
-<button onclick="submitData()">🚀 Analyze</button>
+<button onclick="submitData()">Analyze</button>
 
-<h3>Results:</h3>
 <div id="results"></div>
 
-<script>
-
-let files = [];
-
-const fileInput = document.getElementById("fileInput");
-const fileList = document.getElementById("fileList");
-
-const API_BASE = "https://independent-perception-production.up.railway.app";
-
-
-// =========================
-// 文件处理
-// =========================
-fileInput.addEventListener("change", (e) => {
-  for (let f of e.target.files) {
-    files.push(f);
-  }
-  renderFiles();
-});
-
-function renderFiles() {
-  fileList.innerHTML = "";
-
-  files.forEach((file, index) => {
-    const div = document.createElement("div");
-    div.className = "file-item";
-
-    div.innerHTML = `
-      <span>${file.name}</span>
-      <button onclick="removeFile(${index})">❌</button>
-    `;
-
-    fileList.appendChild(div);
-  });
-}
-
-function removeFile(index) {
-  files.splice(index, 1);
-  renderFiles();
-}
-
-
-// =========================
-// 提交
-// =========================
-async function submitData() {
-
-  const jd = document.getElementById("jd").value.trim();
-  const resultsDiv = document.getElementById("results");
-
-  if (!jd) {
-    alert("Please enter JD");
-    return;
-  }
-
-  if (files.length === 0) {
-    alert("Please upload resumes (.docx recommended)");
-    return;
-  }
-
-  const formData = new FormData();
-  formData.append("jd", jd);
-
-  files.forEach(file => {
-    formData.append("files", file);
-  });
-
-  resultsDiv.innerHTML = "⏳ Processing...";
-
-  try {
-
-    const res = await fetch(`${API_BASE}/rank`, {
-      method: "POST",
-      body: formData
-    });
-
-    const data = await res.json();
-
-    console.log("API RESPONSE:", data);
-
-    if (!data || !data.jd || !data.results) {
-      resultsDiv.innerHTML = "❌ Invalid response format";
-      return;
-    }
-
-    // 清空旧结果（避免重复叠加）
-    resultsDiv.innerHTML = "";
-
-    renderJD(data.jd);
-    renderResults(data.results);
-
-  } catch (err) {
-    console.error(err);
-    resultsDiv.innerHTML = "❌ Error: " + err.message;
-  }
-}
-
-
-// =========================
-// JD展示
-// =========================
-function renderJD(jd) {
-
-  const box = document.createElement("div");
-  box.className = "result";
-
-  box.innerHTML = `
-    <h3>📌 AI Parsed Job Description</h3>
-
-    <p><strong>Experience:</strong> ${jd.min_years || 0} years</p>
-
-    <p><strong>Must-have Skills:</strong>
-      ${(jd.must_have_skills || []).join(", ") || "None"}
-    </p>
-
-    <p><strong>Preferred Skills:</strong>
-      ${(jd.preferred_skills || []).join(", ") || "None"}
-    </p>
-
-    <p><strong>Domain:</strong> ${jd.domain || "N/A"}</p>
-  `;
-
-  document.getElementById("results").appendChild(box);
-}
-
-
-// =========================
-// ranking结果
-// =========================
-function renderResults(data) {
-
-  const resultsDiv = document.getElementById("results");
-
-  data.forEach((item, index) => {
-
-    const div = document.createElement("div");
-    div.className = "result";
-
-    div.innerHTML = `
-      <h3>#${index + 1} ${item.name}</h3>
-
-      <p><strong>Score:</strong> ${item.score}</p>
-
-      <p><strong>Reason:</strong> ${item.reason}</p>
-    `;
-
-    resultsDiv.appendChild(div);
-  });
-}
-
-</script>
+<script src="app.js"></script>
 
 </body>
 </html>
