@@ -3,7 +3,8 @@ let files = [];
 const fileInput = document.getElementById("fileInput");
 const fileList = document.getElementById("fileList");
 
-const API = "http://localhost:5000/rank";
+// ⚠️ 改这里（部署时必须换成线上）
+const API = "https://YOUR_BACKEND_URL/rank";
 
 fileInput.addEventListener("change", e => {
   files.push(...e.target.files);
@@ -34,6 +35,11 @@ async function submitData() {
   const jd = document.getElementById("jd").value;
   const loading = document.getElementById("loading");
 
+  if (!jd || files.length === 0) {
+    alert("Please input JD and upload files");
+    return;
+  }
+
   loading.classList.remove("hidden");
 
   const form = new FormData();
@@ -41,16 +47,29 @@ async function submitData() {
 
   files.forEach(f => form.append("files", f));
 
-  const res = await fetch(API, {
-    method: "POST",
-    body: form
-  });
+  try {
 
-  const data = await res.json();
+    const res = await fetch(API, {
+      method: "POST",
+      body: form
+    });
 
-  loading.classList.add("hidden");
+    const data = await res.json();
 
-  renderResults(data.results);
+    loading.classList.add("hidden");
+
+    if (!data || !data.results) {
+      console.error(data);
+      alert("Backend error");
+      return;
+    }
+
+    renderResults(data.results);
+
+  } catch (err) {
+    loading.classList.add("hidden");
+    alert("Network error: " + err.message);
+  }
 }
 
 
@@ -64,7 +83,7 @@ function renderResults(results) {
 
   results.forEach((r, i) => {
 
-    const scoreWidth = r.score || 0;
+    const score = r.score || 0;
 
     const card = document.createElement("div");
     card.className = "result-card";
@@ -72,11 +91,11 @@ function renderResults(results) {
     card.innerHTML = `
       <div class="result-header">
         <h3>#${i + 1} ${r.name}</h3>
-        <div class="score">${r.score}</div>
+        <div class="score">${score}</div>
       </div>
 
       <div class="bar">
-        <div class="bar-fill" style="width:${scoreWidth}%"></div>
+        <div class="bar-fill" style="width:${score}%"></div>
       </div>
 
       <p>${r.reason || ""}</p>
