@@ -1,7 +1,5 @@
 flask
-flask-cors
-pandas
 requests
-scikit-learn
-pymupdf
-gunicorn
+pandas
+python-docx
+PyPDF2
