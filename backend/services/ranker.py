@@ -2,18 +2,18 @@ def score(jd, c):
 
     score = 0
 
-    must = set(jd.skills)
-    cand = set(c.skills)
+    jd_skills = set(jd.get("skills", []))
+    c_skills = set(c.get("skills", []))
 
-    score += len(must & cand) * 30
+    score += len(jd_skills & c_skills) * 30
 
-    if c.years >= jd.min_years:
+    if c.get("years", 0) >= jd.get("min_years", 1):
         score += 25
 
-    if jd.domain == c.domain:
+    if jd.get("domain") == c.get("domain"):
         score += 10
 
-    score += len(cand)
+    score += len(c_skills)
 
     return min(score, 100)
 
@@ -23,12 +23,13 @@ def rank(jd, candidates):
     results = []
 
     for c in candidates:
+
         results.append({
-            "name": c.name,
+            "name": c["name"],
             "score": score(jd, c),
-            "skills": c.skills,
-            "years": c.years,
-            "domain": c.domain
+            "skills": c.get("skills", []),
+            "years": c.get("years", 0),
+            "domain": c.get("domain", "")
         })
 
     return sorted(results, key=lambda x: x["score"], reverse=True)
