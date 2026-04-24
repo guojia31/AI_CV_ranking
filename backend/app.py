@@ -1,87 +1,86 @@
-# -*- coding: utf-8 -*-
 from flask import Flask, request, jsonify
-from flask_cors import CORS
-import pandas as pd
-import fitz
-import os
-
-from backend.ranking_engine import rank_resumes
+from services.parser import read_file
+from services.llm import call_llm, safe_json
+from services.schema import Candidate, JD
+from services.ranker import rank
 
 app = Flask(__name__)
-CORS(app)
 
 
-# ========================
-# PDF解析
-# ========================
-def extract_text_from_pdf(file):
-    try:
-        doc = fitz.open(stream=file.read(), filetype="pdf")
-        text = ""
+def extract_jd(text):
 
-        for page in doc:
-            text += page.get_text()
+    prompt = f"""
+Extract JSON:
 
-        return text.strip()
+{{
+  "skills": [],
+  "min_years": 0,
+  "domain": ""
+}}
 
-    except Exception as e:
-        print("❌ PDF解析失败:", e)
-        return ""
+Text:
+{text}
+"""
+
+    res = safe_json(call_llm(prompt))
+
+    return JD(
+        skills=res.get("skills", ["communication"]),
+        min_years=res.get("min_years", 1),
+        domain=res.get("domain", "general")
+    )
 
 
-# ========================
-# API
-# ========================
+def extract_candidate(text):
+
+    prompt = f"""
+Extract JSON:
+
+{{
+  "skills": [],
+  "years": 0,
+  "domain": ""
+}}
+
+Text:
+{text[:1500]}
+"""
+
+    res = safe_json(call_llm(prompt))
+
+    return res
+
+
 @app.route("/rank", methods=["POST"])
-def rank():
-    try:
-        jd = request.form.get("jd")
-        files = request.files.getlist("files")
+def run_rank():
 
-        if not jd:
-            return jsonify({"error": "JD is required"}), 400
+    jd_text = request.form["jd"]
+    jd = extract_jd(jd_text)
 
-        if not files:
-            return jsonify({"error": "No files uploaded"}), 400
+    candidates = []
 
-        resumes = []
+    for f in request.files.getlist("files"):
 
-        for f in files:
-            text = extract_text_from_pdf(f)
+        text = read_file(f, f.filename)
+        data = extract_candidate(text)
 
-            if not text:
-                continue
+        candidates.append(
+            Candidate(
+                name=f.filename,
+                skills=data.get("skills", []),
+                years=data.get("years", 0),
+                domain=data.get("domain", "general"),
+                text=text
+            )
+        )
 
-            resumes.append({
-                "姓名": f.filename,
-                "内容": text
-            })
+    results = rank(jd, candidates)
 
-        if not resumes:
-            return jsonify({"error": "All PDFs failed"}), 400
-
-        df = pd.DataFrame(resumes)
-
-        results = rank_resumes(df, jd)
-
-        return jsonify(results)
-
-    except Exception as e:
-        print("❌ backend error:", e)
-        return jsonify({"error": "Server error"}), 500
+    return jsonify({
+        "jd": jd.__dict__,
+        "results": results
+    })
 
 
-# ========================
-# 健康检查
-# ========================
-@app.route("/")
-def home():
-    return "✅ Backend running"
-
-
-# ========================
-# 启动
-# ========================
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(debug=True)
