@@ -1,24 +1,47 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>AI Resume System</title>
+  <title>AI Hiring Dashboard</title>
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-<h2>AI Resume Screening</h2>
+<div class="layout">
 
-<textarea id="jd" placeholder="Paste JD here"></textarea>
+  <!-- LEFT: JD PANEL -->
+  <div class="left-panel">
 
-<input type="file" id="fileInput" multiple accept=".pdf,.docx,.csv,.txt">
+    <h1>🤖 AI Hiring Dashboard</h1>
 
-<div id="fileList"></div>
+    <div class="card">
+      <h2>Job Description</h2>
+      <textarea id="jd" placeholder="Paste JD here..."></textarea>
+    </div>
 
-<button onclick="submitData()">Analyze</button>
+    <div class="card">
+      <h2>Upload Candidates</h2>
+      <input type="file" id="fileInput" multiple accept=".pdf,.docx,.csv,.txt">
+      <div id="fileList"></div>
+    </div>
 
-<div id="results"></div>
+    <button class="btn" onclick="submitData()">Run Ranking</button>
+
+    <div id="loading" class="loading hidden">Analyzing candidates...</div>
+
+  </div>
+
+  <!-- RIGHT: RESULTS -->
+  <div class="right-panel">
+
+    <h2>Ranking Results</h2>
+
+    <div id="results"></div>
+
+  </div>
+
+</div>
 
 <script src="app.js"></script>
 
