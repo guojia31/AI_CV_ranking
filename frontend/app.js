@@ -1,151 +1,53 @@
+let files = [];
 
-// =========================
-// 全局文件
-// =========================
-let selectedFiles = [];
+const input = document.getElementById("fileInput");
+const list = document.getElementById("fileList");
 
-const API_BASE = "https://independent-perception-production.up.railway.app";
+const API = "http://localhost:5000/rank";
 
 
-// =========================
-// 文件上传
-// =========================
-document.getElementById("fileInput").addEventListener("change", function (e) {
-  const files = Array.from(e.target.files);
-
-  files.forEach(file => selectedFiles.push(file));
-
-  renderFileList();
+input.addEventListener("change", e => {
+  files.push(...e.target.files);
+  render();
 });
 
+function render() {
+  list.innerHTML = "";
 
-// =========================
-// 渲染文件列表
-// =========================
-function renderFileList() {
-  const fileList = document.getElementById("fileList");
-  fileList.innerHTML = "";
-
-  selectedFiles.forEach((file, index) => {
+  files.forEach((f, i) => {
     const div = document.createElement("div");
     div.className = "file-item";
 
     div.innerHTML = `
-      <span>${file.name}</span>
-      <button onclick="removeFile(${index})">❌</button>
+      <span>${f.name}</span>
+      <button onclick="remove(${i})">x</button>
     `;
 
-    fileList.appendChild(div);
+    list.appendChild(div);
   });
 }
 
-
-// =========================
-// 删除文件
-// =========================
-function removeFile(index) {
-  selectedFiles.splice(index, 1);
-  renderFileList();
+function remove(i) {
+  files.splice(i, 1);
+  render();
 }
 
-
-// =========================
-// 提交
-// =========================
 async function submitData() {
 
   const jd = document.getElementById("jd").value;
-  const loading = document.getElementById("loading");
-  const resultsDiv = document.getElementById("results");
 
-  if (!jd || selectedFiles.length === 0) {
-    alert("Please input JD and upload resumes");
-    return;
-  }
+  const form = new FormData();
+  form.append("jd", jd);
 
-  loading.classList.remove("hidden");
-  resultsDiv.innerHTML = "";
+  files.forEach(f => form.append("files", f));
 
-  const formData = new FormData();
-  formData.append("jd", jd);
-
-  selectedFiles.forEach(file => {
-    formData.append("files", file);
+  const res = await fetch(API, {
+    method: "POST",
+    body: form
   });
 
-  try {
+  const data = await res.json();
 
-    const res = await fetch(`${API_BASE}/rank`, {
-      method: "POST",
-      body: formData
-    });
-
-    const data = await res.json();
-
-    loading.classList.add("hidden");
-
-    console.log("API RESPONSE:", data);
-
-    if (!data || !data.jd || !data.results) {
-      resultsDiv.innerHTML = "❌ Invalid response";
-      return;
-    }
-
-    renderJD(data.jd);
-    renderResults(data.results);
-
-  } catch (err) {
-    loading.classList.add("hidden");
-    console.error(err);
-    alert("Error connecting to backend");
-  }
-}
-
-
-// =========================
-// JD展示
-// =========================
-function renderJD(jd) {
-
-  const resultsDiv = document.getElementById("results");
-
-  const box = document.createElement("div");
-  box.className = "card";
-
-  box.innerHTML = `
-    <h3>📌 Parsed JD</h3>
-
-    <p><b>Experience:</b> ${jd.min_years || 0} years</p>
-
-    <p><b>Must Skills:</b> ${(jd.must_have_skills || []).join(", ") || "None"}</p>
-
-    <p><b>Preferred Skills:</b> ${(jd.preferred_skills || []).join(", ") || "None"}</p>
-
-    <p><b>Domain:</b> ${jd.domain || "N/A"}</p>
-  `;
-
-  resultsDiv.appendChild(box);
-}
-
-
-// =========================
-// results展示
-// =========================
-function renderResults(results) {
-
-  const resultsDiv = document.getElementById("results");
-
-  results.forEach((item, i) => {
-
-    const div = document.createElement("div");
-    div.className = "card";
-
-    div.innerHTML = `
-      <h3>#${i + 1} ${item.name}</h3>
-      <p><b>Score:</b> ${item.score}</p>
-      <p><b>Reason:</b> ${item.reason}</p>
-    `;
-
-    resultsDiv.appendChild(div);
-  });
+  document.getElementById("results").innerHTML =
+    `<pre>${JSON.stringify(data, null, 2)}</pre>`;
 }
